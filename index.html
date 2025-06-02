@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRACIONAR - Sistema de Análise Facebook Ads</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/recharts@2.8.0/umd/Recharts.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { 
+            font-family: 'Inter', sans-serif; 
+            margin: 0; 
+            padding: 0; 
+            overflow-x: hidden;
+        }
+        .gradient-bg { 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+        }
+        .card-shadow { 
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1); 
+        }
+        .metric-card:hover { 
+            transform: translateY(-2px); 
+            transition: all 0.3s ease; 
+        }
+        .loading-shimmer {
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+        }
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+        .sidebar-menu-item.active {
+            background: #2563eb;
+            border-right: 4px solid #3b82f6;
+        }
+        .notification-badge {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: #ef4444;
+            color: white;
+            border-radius: 50%;
+            width: 18px;
+            height: 18px;
+            font-size: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div id="root">
+        <div class="flex items-center justify-center min-h-screen">
+            <div class="text-center">
+                <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p class="text-gray-600">Carregando TRACIONAR...</p>
+            </div>
+        </div>
+    </div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo } = React;
+        const { LineChart, Line, AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } = Recharts;
+
+        // ========== API SERVICE ==========
+        const API_BASE_URL = window.location.origin + '/api';
+
+        const api = {
+            setToken: (token) => localStorage.setItem('tracionar_token', token),
+            getToken: () => localStorage.getItem('tracionar_token'),
+            removeToken: () => localStorage.removeItem('tracionar_token'),
+            request: async (endpoint, options = {}) => {
+                const token = api.getToken();
+                const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+                    ...options,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': token ? `Bearer ${token}` : '',
+                        ...options.headers
+                    }
+                });
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                return response.json();
+            }
+        };
+
+        // ========== UTILITY FUNCTIONS ==========
+        const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+        const formatNumber = (value) => new Intl.NumberFormat('pt-BR').format(value);
+        const formatPercentage = (value) => `${value}%`;
+
+        // ========== LOADING COMPONENT ==========
+        const LoadingSpinner = ({ size = 'large' }) => (
+            <div className={`flex items-center justify-center ${size === 'small' ? 'h-32' : 'h-64'}`}>
+                <div className={`animate-spin rounded-full border-b-2 border-blue-600 ${
+                    size === 'small' ? 'h-8 w-8' : 'h-32 w-32'
+                }`}></div>
+            </div>
+        );
+
+        // ========== LOGIN COMPONENT ==========
+        const LoginPage = ({ onLogin }) => {
+            const [email, setEmail] = useState('joao@tracionar.com');
+            const [password, setPassword] = useState('123456');
+            const [loading, setLoading] = useState(false);
+            const [error, setError] = useState('');
+
+            const handleLogin = async (e) => {
+                e.preventDefault();
+                setLoading(true);
+                setError('');
+
+                try {
+                    const response = await api.request('/auth/login', {
+                        method: 'POST',
+                        body: JSON.stringify({ email, password })
+                    });
+
+                    api.setToken(response.token);
+                    onLogin(response.user);
+                } catch (error) {
+                    setError('Erro ao fazer login. Verifique suas credenciais.');
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            return (
+                <div className="min-h-screen gradient-bg flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+                    <div className="max-w-md w-full space-y-8">
+                        <div className="text-center">
+                            <div className="mx-auto h-20 w-20 bg-white rounded-full flex items-center justify-center mb-4">
+                                <i className="fas fa-chart-line text-3xl text-blue-600"></i>
+                            </div>
+                            <h2 className="text-4xl font-bold text-white mb-2">TRACIONAR</h2>
+                            <p className="text-blue-100 text-lg">Sistema de Análise Facebook Ads</p>
+                            <p className="text-blue-200 text-sm mt-2">Monitore, analise e otimize suas campanhas</p>
+                        </div>
+                        
+                        <div className="bg-white p-8 rounded-lg shadow-2xl">
+                            <form onSubmit={handleLogin} className="space-y-6">
+                                {error && (
+                                    <div className="bg-red-50 text-red-600 p-3 rounded-md text-sm border border-red-200">
+                                        <i className="fas fa-exclamation-triangle mr-2"></i>
+                                        {error}
+                                    </div>
+                                )}
+                                
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        <i className="fas fa-envelope mr-2"></i>Email
+                                    </label>
+                                    <input
+                                        type="email"
+                                        value={email}
+                                        onChange={(e) => setEmail(e.target.value)}
+                                        className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                                        placeholder="seu@email.com"
+                                        required
+                                    />
+                                </div>
+                                
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        <i className="fas fa-lock mr-2"></i>Senha
+                                    </label>
+                                    <input
+                                        type="password"
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                        className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                                        placeholder="••••••••"
+                                        required
+                                    />
+                                </div>
+                                
+                                <button
+                                    type="submit"
+                                    disabled={loading}
+                                    className="w-full bg-blue-600 text-white py-3 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium"
+                                >
+                                    {loading ? (
+                                        <>
+                                            <i className="fas fa-spinner fa-spin mr-2"></i>
+                                            Entrando...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <i className="fas fa-sign-in-alt mr-2"></i>
+                                            Entrar no TRACIONAR
+                                        </>
+                                    )}
+                                </button>
+                            </form>
+                            
+                            <div className="mt-6 text-center text-sm text-gray-500 bg-gray-50 p-4 rounded-md">
+                                <p className="font-medium text-gray-700 mb-2">
+                                    <i className="fas fa-info-circle mr-1"></i>
+                                    Dados para teste da demo:
+                                </p>
+                                <div className="space-y-1">
+                                    <p><strong>Email:</strong> joao@tracionar.com</p>
+                                    <p><strong>Senha:</strong> 123456</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // ========== SIDEBAR COMPONENT ==========
+        const Sidebar = ({ activeTab, setActiveTab, user, unreadAlerts = 0 }) => {
+            const menuItems = [
+                { id: 'dashboard', icon: 'fas fa-tachometer-alt', label: 'Dashboard', badge: null },
+                { id: 'campaigns', icon: 'fas fa-bullhorn', label: 'Campanhas', badge: null },
+                { id: 'reports', icon: 'fas fa-chart-bar', label: 'Relatórios', badge: null },
+                { id: 'alerts', icon: 'fas fa-bell', label: 'Alertas', badge: unreadAlerts },
+                { id: 'profile', icon: 'fas fa-user', label: 'Perfil', badge: null }
+            ];
+
+            return (
+                <div className="bg-gray-900 text-white w-64 min-h-screen flex flex-col">
+                    <div className="p-6 border-b border-gray-700">
+                        <div className="flex items-center space-x-3">
+                            <div className="h-10 w-10 bg-blue-600 rounded-lg flex items-center justify-center">
+                                <i className="fas fa-chart-line text-white"></i>
+                            </div>
+                            <div>
+                                <h1 className="text-xl font-bold">TRACIONAR</h1>
+                                <p className="text-gray-400 text-xs">Facebook Ads Analytics</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <nav className="mt-6 flex-1">
+                        {menuItems.map(item => (
+                            <button
+                                key={item.id}
+                                onClick={() => setActiveTab(item.id)}
+                                className={`w-full text-left px-6 py-3 flex items-center justify-between hover:bg-gray-800 transition-colors sidebar-menu-item ${
