@@ -7,33 +7,30 @@
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/recharts@2.8.0/umd/Recharts.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; }
         .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
         .card-shadow { box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+        .metric-card:hover { transform: translateY(-2px); transition: all 0.3s ease; }
     </style>
 </head>
 <body class="bg-gray-50">
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect } = React;
+        const { useState, useEffect, useMemo } = React;
+        const { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } = Recharts;
 
         // API Service
         const API_BASE_URL = window.location.origin + '/api';
 
         const api = {
-            setToken: (token) => {
-                localStorage.setItem('tracionar_token', token);
-            },
-            getToken: () => {
-                return localStorage.getItem('tracionar_token');
-            },
-            removeToken: () => {
-                localStorage.removeItem('tracionar_token');
-            },
+            setToken: (token) => localStorage.setItem('tracionar_token', token),
+            getToken: () => localStorage.getItem('tracionar_token'),
+            removeToken: () => localStorage.removeItem('tracionar_token'),
             request: async (endpoint, options = {}) => {
                 const token = api.getToken();
                 const response = await fetch(`${API_BASE_URL}${endpoint}`, {
@@ -44,14 +41,14 @@
                         ...options.headers
                     }
                 });
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                 return response.json();
             }
         };
+
+        // Utility Functions
+        const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+        const formatNumber = (value) => new Intl.NumberFormat('pt-BR').format(value);
 
         // Login Component
         const LoginPage = ({ onLogin }) => {
@@ -64,13 +61,11 @@
                 e.preventDefault();
                 setLoading(true);
                 setError('');
-
                 try {
                     const response = await api.request('/auth/login', {
                         method: 'POST',
                         body: JSON.stringify({ email, password })
                     });
-
                     api.setToken(response.token);
                     onLogin(response.user);
                 } catch (error) {
@@ -95,8 +90,7 @@
                             <form onSubmit={handleLogin} className="space-y-6">
                                 {error && (
                                     <div className="bg-red-50 text-red-600 p-3 rounded-md text-sm">
-                                        <i className="fas fa-exclamation-triangle mr-2"></i>
-                                        {error}
+                                        <i className="fas fa-exclamation-triangle mr-2"></i>{error}
                                     </div>
                                 )}
                                 
@@ -133,13 +127,11 @@
                                 >
                                     {loading ? (
                                         <>
-                                            <i className="fas fa-spinner fa-spin mr-2"></i>
-                                            Entrando...
+                                            <i className="fas fa-spinner fa-spin mr-2"></i>Entrando...
                                         </>
                                     ) : (
                                         <>
-                                            <i className="fas fa-sign-in-alt mr-2"></i>
-                                            Entrar no TRACIONAR
+                                            <i className="fas fa-sign-in-alt mr-2"></i>Entrar no TRACIONAR
                                         </>
                                     )}
                                 </button>
@@ -147,8 +139,7 @@
                             
                             <div className="mt-6 text-center text-sm text-gray-500 bg-gray-50 p-4 rounded-md">
                                 <p className="font-medium text-gray-700 mb-2">
-                                    <i className="fas fa-info-circle mr-1"></i>
-                                    Dados para teste da demo:
+                                    <i className="fas fa-info-circle mr-1"></i>Dados para teste da demo:
                                 </p>
                                 <div className="space-y-1">
                                     <p><strong>Email:</strong> joao@tracionar.com</p>
@@ -161,161 +152,281 @@
             );
         };
 
-        // Dashboard Component
-        const Dashboard = ({ user, onLogout }) => {
+        // Sidebar Component
+        const Sidebar = ({ activeTab, setActiveTab, user }) => {
+            const menuItems = [
+                { id: 'dashboard', icon: 'fas fa-tachometer-alt', label: 'Dashboard' },
+                { id: 'campaigns', icon: 'fas fa-bullhorn', label: 'Campanhas' },
+                { id: 'reports', icon: 'fas fa-chart-bar', label: 'Relatórios' },
+                { id: 'alerts', icon: 'fas fa-bell', label: 'Alertas' },
+                { id: 'profile', icon: 'fas fa-user', label: 'Perfil' }
+            ];
+
             return (
-                <div className="min-h-screen bg-gray-50">
-                    <header className="bg-white shadow-sm border-b border-gray-200">
-                        <div className="px-6 py-4 flex justify-between items-center">
-                            <div className="flex items-center space-x-4">
-                                <div className="flex items-center space-x-3">
-                                    <div className="h-10 w-10 bg-blue-600 rounded-lg flex items-center justify-center">
-                                        <i className="fas fa-chart-line text-white"></i>
-                                    </div>
-                                    <div>
-                                        <h1 className="text-xl font-bold text-gray-900">TRACIONAR</h1>
-                                        <p className="text-xs text-gray-500">Facebook Ads Analytics</p>
-                                    </div>
-                                </div>
+                <div className="bg-gray-900 text-white w-64 min-h-screen flex flex-col">
+                    <div className="p-6 border-b border-gray-700">
+                        <div className="flex items-center space-x-3">
+                            <div className="h-10 w-10 bg-blue-600 rounded-lg flex items-center justify-center">
+                                <i className="fas fa-chart-line text-white"></i>
                             </div>
-                            
-                            <div className="flex items-center space-x-4">
-                                <div className="flex items-center space-x-2 text-sm text-gray-600 bg-gray-50 px-3 py-2 rounded-lg">
-                                    <i className="fas fa-coins text-yellow-500"></i>
-                                    <span className="font-medium">{user.credits} créditos</span>
-                                </div>
-                                
+                            <div>
+                                <h1 className="text-xl font-bold">TRACIONAR</h1>
+                                <p className="text-gray-400 text-xs">Facebook Ads Analytics</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <nav className="mt-6 flex-1">
+                        {menuItems.map(item => (
+                            <button
+                                key={item.id}
+                                onClick={() => setActiveTab(item.id)}
+                                className={`w-full text-left px-6 py-3 flex items-center space-x-3 hover:bg-gray-800 transition-colors ${
+                                    activeTab === item.id ? 'bg-blue-600 border-r-4 border-blue-400' : ''
+                                }`}
+                            >
+                                <i className={item.icon}></i>
+                                <span>{item.label}</span>
+                            </button>
+                        ))}
+                    </nav>
+                    
+                    <div className="p-6 bg-gray-800 border-t border-gray-700">
+                        <div className="flex items-center space-x-3">
+                            <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
+                                <i className="fas fa-user text-white text-sm"></i>
+                            </div>
+                            <div className="flex-1">
+                                <p className="text-sm font-medium truncate">{user?.name}</p>
                                 <div className="flex items-center space-x-2">
-                                    <span className="text-sm text-gray-700">Olá, {user.name}</span>
-                                    <button
-                                        onClick={onLogout}
-                                        className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg"
-                                        title="Sair"
-                                    >
-                                        <i className="fas fa-sign-out-alt"></i>
-                                    </button>
+                                    <span className="text-xs text-gray-400">{user?.plan} Plan</span>
+                                    <span className="text-xs bg-green-600 text-white px-2 py-0.5 rounded">
+                                        {user?.credits} créditos
+                                    </span>
                                 </div>
                             </div>
                         </div>
-                    </header>
-
-                    <main className="p-6">
-                        <div className="max-w-7xl mx-auto space-y-6">
-                            <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-8 rounded-lg">
-                                <h2 className="text-3xl font-bold mb-2">🎉 Demo TRACIONAR Funcionando!</h2>
-                                <p className="text-blue-100 text-lg">
-                                    Parabéns! O sistema está online e funcionando perfeitamente.
-                                </p>
-                                <p className="text-blue-200 mt-2">
-                                    Esta é uma demonstração completa do sistema de análise Facebook Ads.
-                                </p>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                                <div className="bg-white p-6 rounded-lg card-shadow">
-                                    <div className="flex items-center">
-                                        <div className="p-3 bg-blue-100 rounded-full">
-                                            <i className="fas fa-chart-line text-blue-600"></i>
-                                        </div>
-                                        <div className="ml-4">
-                                            <h3 className="text-2xl font-bold text-gray-900">2</h3>
-                                            <p className="text-gray-600">Campanhas Ativas</p>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="bg-white p-6 rounded-lg card-shadow">
-                                    <div className="flex items-center">
-                                        <div className="p-3 bg-green-100 rounded-full">
-                                            <i className="fas fa-dollar-sign text-green-600"></i>
-                                        </div>
-                                        <div className="ml-4">
-                                            <h3 className="text-2xl font-bold text-gray-900">R$ 20.900</h3>
-                                            <p className="text-gray-600">Investimento Total</p>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="bg-white p-6 rounded-lg card-shadow">
-                                    <div className="flex items-center">
-                                        <div className="p-3 bg-purple-100 rounded-full">
-                                            <i className="fas fa-shopping-cart text-purple-600"></i>
-                                        </div>
-                                        <div className="ml-4">
-                                            <h3 className="text-2xl font-bold text-gray-900">709</h3>
-                                            <p className="text-gray-600">Conversões</p>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="bg-white p-6 rounded-lg card-shadow">
-                                    <div className="flex items-center">
-                                        <div className="p-3 bg-yellow-100 rounded-full">
-                                            <i className="fas fa-trophy text-yellow-600"></i>
-                                        </div>
-                                        <div className="ml-4">
-                                            <h3 className="text-2xl font-bold text-gray-900">4.0x</h3>
-                                            <p className="text-gray-600">ROAS Médio</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="bg-white p-8 rounded-lg card-shadow">
-                                <h3 className="text-2xl font-bold text-gray-900 mb-6">✅ Demo Funcionando Perfeitamente!</h3>
-                                
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div>
-                                        <h4 className="font-semibold text-gray-900 mb-3">🎯 Funcionalidades Implementadas:</h4>
-                                        <ul className="space-y-2 text-gray-600">
-                                            <li>✅ Sistema de login seguro</li>
-                                            <li>✅ Backend Express.js funcionando</li>
-                                            <li>✅ Frontend React carregando</li>
-                                            <li>✅ API endpoints respondendo</li>
-                                            <li>✅ Autenticação JWT ativa</li>
-                                            <li>✅ Interface responsiva</li>
-                                        </ul>
-                                    </div>
-                                    
-                                    <div>
-                                        <h4 className="font-semibold text-gray-900 mb-3">📊 Dados da Demo:</h4>
-                                        <ul className="space-y-2 text-gray-600">
-                                            <li>📈 2 Campanhas Facebook Ads</li>
-                                            <li>💰 R$ 20.900 em investimentos</li>
-                                            <li>🎯 709 conversões simuladas</li>
-                                            <li>📋 Relatórios automatizados</li>
-                                            <li>🔔 Sistema de alertas</li>
-                                            <li>👤 Perfil do usuário completo</li>
-                                        </ul>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="bg-green-50 border border-green-200 p-6 rounded-lg">
-                                <div className="flex items-start">
-                                    <i className="fas fa-check-circle text-green-600 mt-1 mr-3"></i>
-                                    <div>
-                                        <h4 className="font-semibold text-green-800 mb-2">🚀 Deploy Realizado com Sucesso!</h4>
-                                        <p className="text-green-700 text-sm mb-3">
-                                            Sua demo do TRACIONAR está online e funcionando perfeitamente no Render.
-                                        </p>
-                                        <div className="text-green-700 text-sm">
-                                            <p><strong>URL:</strong> {window.location.href}</p>
-                                            <p><strong>Status:</strong> ✅ Online</p>
-                                            <p><strong>Usuário:</strong> {user.email}</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </main>
+                    </div>
                 </div>
             );
         };
 
-        // Main App
+        // Dashboard Component
+        const Dashboard = () => {
+            const [dashboardData, setDashboardData] = useState(null);
+            const [loading, setLoading] = useState(true);
+
+            useEffect(() => {
+                const fetchDashboard = async () => {
+                    try {
+                        const data = await api.request('/dashboard/overview');
+                        setDashboardData(data);
+                    } catch (error) {
+                        console.error('Erro ao carregar dashboard:', error);
+                    } finally {
+                        setLoading(false);
+                    }
+                };
+                fetchDashboard();
+            }, []);
+
+            if (loading) {
+                return (
+                    <div className="flex items-center justify-center h-64">
+                        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+                    </div>
+                );
+            }
+
+            const metrics = dashboardData?.summary || {};
+            const trends = dashboardData?.trends || {};
+
+            return (
+                <div className="space-y-6">
+                    <div className="flex justify-between items-center">
+                        <div>
+                            <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+                            <p className="text-gray-600">Visão geral das suas campanhas do Facebook Ads</p>
+                        </div>
+                        <button className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 text-sm">
+                            <i className="fas fa-sync-alt mr-2"></i>Atualizar
+                        </button>
+                    </div>
+
+                    {/* Métricas Principais */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <div className="bg-white p-6 rounded-lg card-shadow metric-card">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm font-medium text-gray-600">Investimento Total</p>
+                                    <p className="text-2xl font-bold text-gray-900">
+                                        {formatCurrency(metrics.total_spend || 0)}
+                                    </p>
+                                    <p className="text-sm text-green-600">
+                                        {trends.spend_trend} vs mês anterior
+                                    </p>
+                                </div>
+                                <div className="p-3 bg-blue-100 rounded-full">
+                                    <i className="fas fa-dollar-sign text-blue-600"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-white p-6 rounded-lg card-shadow metric-card">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm font-medium text-gray-600">ROAS Médio</p>
+                                    <p className="text-2xl font-bold text-gray-900">
+                                        {metrics.average_roas || 0}x
+                                    </p>
+                                    <p className="text-sm text-green-600">
+                                        {trends.roas_trend} vs mês anterior
+                                    </p>
+                                </div>
+                                <div className="p-3 bg-green-100 rounded-full">
+                                    <i className="fas fa-chart-line text-green-600"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-white p-6 rounded-lg card-shadow metric-card">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm font-medium text-gray-600">Conversões</p>
+                                    <p className="text-2xl font-bold text-gray-900">
+                                        {formatNumber(metrics.total_conversions || 0)}
+                                    </p>
+                                    <p className="text-sm text-green-600">
+                                        {trends.conversions_trend} vs mês anterior
+                                    </p>
+                                </div>
+                                <div className="p-3 bg-purple-100 rounded-full">
+                                    <i className="fas fa-shopping-cart text-purple-600"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-white p-6 rounded-lg card-shadow metric-card">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm font-medium text-gray-600">CPC Médio</p>
+                                    <p className="text-2xl font-bold text-gray-900">
+                                        {formatCurrency(metrics.average_cpc || 0)}
+                                    </p>
+                                    <p className="text-sm text-green-600">
+                                        {trends.cpc_trend} vs mês anterior
+                                    </p>
+                                </div>
+                                <div className="p-3 bg-yellow-100 rounded-full">
+                                    <i className="fas fa-mouse-pointer text-yellow-600"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Gráficos */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div className="bg-white p-6 rounded-lg card-shadow">
+                            <h3 className="text-lg font-semibold mb-4 flex items-center">
+                                <i className="fas fa-chart-line mr-2 text-blue-600"></i>Performance Diária
+                            </h3>
+                            <ResponsiveContainer width="100%" height={300}>
+                                <LineChart data={dashboardData?.daily_metrics || []}>
+                                    <CartesianGrid strokeDasharray="3 3" />
+                                    <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                                    <YAxis tick={{ fontSize: 12 }} />
+                                    <Tooltip />
+                                    <Legend />
+                                    <Line type="monotone" dataKey="roas" stroke="#3B82F6" strokeWidth={3} name="ROAS" />
+                                    <Line type="monotone" dataKey="spend" stroke="#EF4444" strokeWidth={3} name="Investimento" />
+                                </LineChart>
+                            </ResponsiveContainer>
+                        </div>
+
+                        <div className="bg-white p-6 rounded-lg card-shadow">
+                            <h3 className="text-lg font-semibold mb-4 flex items-center">
+                                <i className="fas fa-chart-area mr-2 text-green-600"></i>Receita vs Investimento
+                            </h3>
+                            <ResponsiveContainer width="100%" height={300}>
+                                <AreaChart data={dashboardData?.daily_metrics || []}>
+                                    <CartesianGrid strokeDasharray="3 3" />
+                                    <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                                    <YAxis tick={{ fontSize: 12 }} />
+                                    <Tooltip />
+                                    <Legend />
+                                    <Area type="monotone" dataKey="revenue" stackId="1" stroke="#10B981" fill="#10B981" fillOpacity={0.8} name="Receita" />
+                                    <Area type="monotone" dataKey="spend" stackId="1" stroke="#F59E0B" fill="#F59E0B" fillOpacity={0.8} name="Investimento" />
+                                </AreaChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+
+                    {/* Top Campanhas e Alertas */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div className="bg-white p-6 rounded-lg card-shadow">
+                            <h3 className="text-lg font-semibold mb-4 flex items-center">
+                                <i className="fas fa-trophy mr-2 text-yellow-600"></i>Top Campanhas
+                            </h3>
+                            <div className="space-y-4">
+                                {dashboardData?.top_campaigns?.map((campaign, index) => (
+                                    <div key={campaign.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                                        <div className="flex items-center space-x-3">
+                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm ${
+                                                index === 0 ? 'bg-yellow-500' : 'bg-blue-500'
+                                            }`}>
+                                                {index + 1}
+                                            </div>
+                                            <div>
+                                                <p className="font-medium text-gray-900">{campaign.name}</p>
+                                                <p className="text-sm text-gray-600">ROAS: {campaign.roas}x</p>
+                                            </div>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="font-semibold text-gray-900">{formatCurrency(campaign.total_spend)}</p>
+                                            <p className="text-sm text-gray-600">{formatNumber(campaign.conversions)} conversões</p>
+                                        </div>
+                                    </div>
+                                )) || []}
+                            </div>
+                        </div>
+
+                        <div className="bg-white p-6 rounded-lg card-shadow">
+                            <h3 className="text-lg font-semibold mb-4 flex items-center">
+                                <i className="fas fa-exclamation-triangle mr-2 text-red-600"></i>Alertas Recentes
+                            </h3>
+                            <div className="space-y-4">
+                                {dashboardData?.alerts?.map(alert => (
+                                    <div key={alert.id} className={`p-4 rounded-lg border-l-4 ${
+                                        alert.severity === 'critical' ? 'bg-red-50 border-red-500' :
+                                        alert.severity === 'warning' ? 'bg-yellow-50 border-yellow-500' :
+                                        'bg-blue-50 border-blue-500'
+                                    }`}>
+                                        <div className="flex items-start space-x-3">
+                                            <i className={`fas ${
+                                                alert.severity === 'critical' ? 'fa-exclamation-triangle text-red-500' :
+                                                alert.severity === 'warning' ? 'fa-exclamation-circle text-yellow-500' :
+                                                'fa-info-circle text-blue-500'
+                                            } mt-1`}></i>
+                                            <div className="flex-1">
+                                                <p className="text-sm font-medium text-gray-900">{alert.message}</p>
+                                                <p className="text-xs text-gray-500 mt-1">
+                                                    {new Date(alert.created_at).toLocaleString('pt-BR')}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )) || []}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // Main App Component
         const App = () => {
             const [user, setUser] = useState(null);
+            const [activeTab, setActiveTab] = useState('dashboard');
             const [loading, setLoading] = useState(true);
 
             useEffect(() => {
@@ -331,17 +442,14 @@
                     }
                     setLoading(false);
                 };
-
                 checkAuth();
             }, []);
 
-            const handleLogin = (userData) => {
-                setUser(userData);
-            };
-
+            const handleLogin = (userData) => setUser(userData);
             const handleLogout = () => {
                 api.removeToken();
                 setUser(null);
+                setActiveTab('dashboard');
             };
 
             if (loading) {
@@ -350,7 +458,7 @@
                         <div className="text-center">
                             <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto mb-4"></div>
                             <h2 className="text-xl font-semibold text-gray-900 mb-2">Carregando TRACIONAR</h2>
-                            <p className="text-gray-600">Aguarde enquanto preparamos tudo para você...</p>
+                            <p className="text-gray-600">Preparando dashboard com gráficos...</p>
                         </div>
                     </div>
                 );
@@ -360,7 +468,48 @@
                 return <LoginPage onLogin={handleLogin} />;
             }
 
-            return <Dashboard user={user} onLogout={handleLogout} />;
+            return (
+                <div className="flex min-h-screen bg-gray-50">
+                    <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} user={user} />
+                    
+                    <div className="flex-1 flex flex-col">
+                        <header className="bg-white shadow-sm border-b border-gray-200">
+                            <div className="px-6 py-4 flex justify-between items-center">
+                                <div className="flex items-center space-x-4">
+                                    <h2 className="text-xl font-semibold text-gray-800">
+                                        {activeTab === 'dashboard' ? 'Dashboard' :
+                                         activeTab === 'campaigns' ? 'Campanhas' :
+                                         activeTab === 'reports' ? 'Relatórios' :
+                                         activeTab === 'alerts' ? 'Alertas' : 'Perfil'}
+                                    </h2>
+                                </div>
+                                
+                                <div className="flex items-center space-x-4">
+                                    <div className="flex items-center space-x-2 text-sm text-gray-600 bg-gray-50 px-3 py-2 rounded-lg">
+                                        <i className="fas fa-coins text-yellow-500"></i>
+                                        <span className="font-medium">{user.credits} créditos</span>
+                                    </div>
+                                    
+                                    <div className="flex items-center space-x-2">
+                                        <span className="text-sm text-gray-700">Olá, {user.name}</span>
+                                        <button
+                                            onClick={handleLogout}
+                                            className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
+                                            title="Sair"
+                                        >
+                                            <i className="fas fa-sign-out-alt"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </header>
+
+                        <main className="flex-1 p-6 overflow-auto">
+                            <Dashboard />
+                        </main>
+                    </div>
+                </div>
+            );
         };
 
         ReactDOM.render(<App />, document.getElementById('root'));
