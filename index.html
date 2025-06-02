@@ -3,248 +3,681 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TRACIONAR - Sistema de Análise Facebook Ads</title>
-    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://unpkg.com/recharts@2.8.0/umd/Recharts.js"></script>
+    <title>TRACIONAR - Demo</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body { 
-            font-family: 'Inter', sans-serif; 
-            margin: 0; 
-            padding: 0; 
-            overflow-x: hidden;
-        }
-        .gradient-bg { 
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-        }
-        .card-shadow { 
-            box-shadow: 0 10px 25px rgba(0,0,0,0.1); 
-        }
-        .metric-card:hover { 
-            transform: translateY(-2px); 
-            transition: all 0.3s ease; 
-        }
-        .loading-shimmer {
-            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-            background-size: 200% 100%;
-            animation: shimmer 1.5s infinite;
-        }
-        @keyframes shimmer {
-            0% { background-position: -200% 0; }
-            100% { background-position: 200% 0; }
-        }
-        .sidebar-menu-item.active {
-            background: #2563eb;
-            border-right: 4px solid #3b82f6;
-        }
-        .notification-badge {
-            position: absolute;
-            top: -5px;
-            right: -5px;
-            background: #ef4444;
-            color: white;
-            border-radius: 50%;
-            width: 18px;
-            height: 18px;
-            font-size: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .card-shadow { box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+        .metric-card:hover { transform: translateY(-2px); transition: all 0.3s ease; }
     </style>
 </head>
 <body class="bg-gray-50">
-    <div id="root">
-        <div class="flex items-center justify-center min-h-screen">
+    
+    <!-- Login Screen -->
+    <div id="loginScreen" class="min-h-screen gradient-bg flex items-center justify-center py-12 px-4">
+        <div class="max-w-md w-full space-y-8">
             <div class="text-center">
-                <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                <p class="text-gray-600">Carregando TRACIONAR...</p>
+                <div class="mx-auto h-20 w-20 bg-white rounded-full flex items-center justify-center mb-4">
+                    <i class="fas fa-chart-line text-3xl text-blue-600"></i>
+                </div>
+                <h2 class="text-4xl font-bold text-white mb-2">TRACIONAR</h2>
+                <p class="text-blue-100 text-lg">Sistema de Análise Facebook Ads</p>
+            </div>
+            
+            <div class="bg-white p-8 rounded-lg shadow-2xl">
+                <form onsubmit="handleLogin(event)" class="space-y-6">
+                    <div id="loginError" class="hidden bg-red-50 text-red-600 p-3 rounded-md text-sm">
+                        Erro ao fazer login
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            <i class="fas fa-envelope mr-2"></i>Email
+                        </label>
+                        <input
+                            type="email"
+                            id="loginEmail"
+                            value="joao@tracionar.com"
+                            class="w-full border border-gray-300 rounded-md px-3 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            required
+                        />
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            <i class="fas fa-lock mr-2"></i>Senha
+                        </label>
+                        <input
+                            type="password"
+                            id="loginPassword"
+                            value="123456"
+                            class="w-full border border-gray-300 rounded-md px-3 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            required
+                        />
+                    </div>
+                    
+                    <button
+                        type="submit"
+                        id="loginButton"
+                        class="w-full bg-blue-600 text-white py-3 px-4 rounded-md hover:bg-blue-700 font-medium"
+                    >
+                        <i class="fas fa-sign-in-alt mr-2"></i>
+                        Entrar no TRACIONAR
+                    </button>
+                </form>
+                
+                <div class="mt-6 text-center text-sm text-gray-500 bg-gray-50 p-4 rounded-md">
+                    <p class="font-medium text-gray-700 mb-2">Dados para teste:</p>
+                    <p><strong>Email:</strong> joao@tracionar.com</p>
+                    <p><strong>Senha:</strong> 123456</p>
+                </div>
             </div>
         </div>
     </div>
 
-    <script type="text/babel">
-        const { useState, useEffect, useMemo } = React;
-        const { LineChart, Line, AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } = Recharts;
-
-        // ========== API SERVICE ==========
-        const API_BASE_URL = window.location.origin + '/api';
-
-        const api = {
-            setToken: (token) => localStorage.setItem('tracionar_token', token),
-            getToken: () => localStorage.getItem('tracionar_token'),
-            removeToken: () => localStorage.removeItem('tracionar_token'),
-            request: async (endpoint, options = {}) => {
-                const token = api.getToken();
-                const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-                    ...options,
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': token ? `Bearer ${token}` : '',
-                        ...options.headers
-                    }
-                });
-                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                return response.json();
-            }
-        };
-
-        // ========== UTILITY FUNCTIONS ==========
-        const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
-        const formatNumber = (value) => new Intl.NumberFormat('pt-BR').format(value);
-        const formatPercentage = (value) => `${value}%`;
-
-        // ========== LOADING COMPONENT ==========
-        const LoadingSpinner = ({ size = 'large' }) => (
-            <div className={`flex items-center justify-center ${size === 'small' ? 'h-32' : 'h-64'}`}>
-                <div className={`animate-spin rounded-full border-b-2 border-blue-600 ${
-                    size === 'small' ? 'h-8 w-8' : 'h-32 w-32'
-                }`}></div>
-            </div>
-        );
-
-        // ========== LOGIN COMPONENT ==========
-        const LoginPage = ({ onLogin }) => {
-            const [email, setEmail] = useState('joao@tracionar.com');
-            const [password, setPassword] = useState('123456');
-            const [loading, setLoading] = useState(false);
-            const [error, setError] = useState('');
-
-            const handleLogin = async (e) => {
-                e.preventDefault();
-                setLoading(true);
-                setError('');
-
-                try {
-                    const response = await api.request('/auth/login', {
-                        method: 'POST',
-                        body: JSON.stringify({ email, password })
-                    });
-
-                    api.setToken(response.token);
-                    onLogin(response.user);
-                } catch (error) {
-                    setError('Erro ao fazer login. Verifique suas credenciais.');
-                } finally {
-                    setLoading(false);
-                }
-            };
-
-            return (
-                <div className="min-h-screen gradient-bg flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-                    <div className="max-w-md w-full space-y-8">
-                        <div className="text-center">
-                            <div className="mx-auto h-20 w-20 bg-white rounded-full flex items-center justify-center mb-4">
-                                <i className="fas fa-chart-line text-3xl text-blue-600"></i>
-                            </div>
-                            <h2 className="text-4xl font-bold text-white mb-2">TRACIONAR</h2>
-                            <p className="text-blue-100 text-lg">Sistema de Análise Facebook Ads</p>
-                            <p className="text-blue-200 text-sm mt-2">Monitore, analise e otimize suas campanhas</p>
+    <!-- Dashboard -->
+    <div id="dashboardScreen" class="hidden min-h-screen bg-gray-50">
+        <div class="flex">
+            <!-- Sidebar -->
+            <div class="bg-gray-900 text-white w-64 min-h-screen">
+                <div class="p-6 border-b border-gray-700">
+                    <div class="flex items-center space-x-3">
+                        <div class="h-10 w-10 bg-blue-600 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-chart-line text-white"></i>
                         </div>
-                        
-                        <div className="bg-white p-8 rounded-lg shadow-2xl">
-                            <form onSubmit={handleLogin} className="space-y-6">
-                                {error && (
-                                    <div className="bg-red-50 text-red-600 p-3 rounded-md text-sm border border-red-200">
-                                        <i className="fas fa-exclamation-triangle mr-2"></i>
-                                        {error}
-                                    </div>
-                                )}
-                                
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        <i className="fas fa-envelope mr-2"></i>Email
-                                    </label>
-                                    <input
-                                        type="email"
-                                        value={email}
-                                        onChange={(e) => setEmail(e.target.value)}
-                                        className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-                                        placeholder="seu@email.com"
-                                        required
-                                    />
-                                </div>
-                                
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        <i className="fas fa-lock mr-2"></i>Senha
-                                    </label>
-                                    <input
-                                        type="password"
-                                        value={password}
-                                        onChange={(e) => setPassword(e.target.value)}
-                                        className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-                                        placeholder="••••••••"
-                                        required
-                                    />
-                                </div>
-                                
-                                <button
-                                    type="submit"
-                                    disabled={loading}
-                                    className="w-full bg-blue-600 text-white py-3 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium"
-                                >
-                                    {loading ? (
-                                        <>
-                                            <i className="fas fa-spinner fa-spin mr-2"></i>
-                                            Entrando...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <i className="fas fa-sign-in-alt mr-2"></i>
-                                            Entrar no TRACIONAR
-                                        </>
-                                    )}
-                                </button>
-                            </form>
-                            
-                            <div className="mt-6 text-center text-sm text-gray-500 bg-gray-50 p-4 rounded-md">
-                                <p className="font-medium text-gray-700 mb-2">
-                                    <i className="fas fa-info-circle mr-1"></i>
-                                    Dados para teste da demo:
-                                </p>
-                                <div className="space-y-1">
-                                    <p><strong>Email:</strong> joao@tracionar.com</p>
-                                    <p><strong>Senha:</strong> 123456</p>
-                                </div>
-                            </div>
+                        <div>
+                            <h1 class="text-xl font-bold">TRACIONAR</h1>
+                            <p class="text-gray-400 text-xs">Facebook Ads Analytics</p>
                         </div>
                     </div>
                 </div>
-            );
-        };
+                
+                <nav class="mt-6">
+                    <button onclick="showSection('dashboard')" id="nav-dashboard" class="w-full text-left px-6 py-3 flex items-center space-x-3 bg-blue-600 border-r-4 border-blue-400">
+                        <i class="fas fa-tachometer-alt"></i>
+                        <span>Dashboard</span>
+                    </button>
+                    <button onclick="showSection('campaigns')" id="nav-campaigns" class="w-full text-left px-6 py-3 flex items-center space-x-3 hover:bg-gray-800">
+                        <i class="fas fa-bullhorn"></i>
+                        <span>Campanhas</span>
+                    </button>
+                    <button onclick="showSection('reports')" id="nav-reports" class="w-full text-left px-6 py-3 flex items-center space-x-3 hover:bg-gray-800">
+                        <i class="fas fa-chart-bar"></i>
+                        <span>Relatórios</span>
+                    </button>
+                    <button onclick="showSection('alerts')" id="nav-alerts" class="w-full text-left px-6 py-3 flex items-center space-x-3 hover:bg-gray-800">
+                        <i class="fas fa-bell"></i>
+                        <span>Alertas</span>
+                        <span class="bg-red-500 text-white rounded-full px-2 py-1 text-xs ml-auto">3</span>
+                    </button>
+                    <button onclick="showSection('profile')" id="nav-profile" class="w-full text-left px-6 py-3 flex items-center space-x-3 hover:bg-gray-800">
+                        <i class="fas fa-user"></i>
+                        <span>Perfil</span>
+                    </button>
+                </nav>
+                
+                <div class="absolute bottom-0 w-64 p-6 bg-gray-800">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium">João Silva</p>
+                            <p class="text-xs text-gray-400">500 créditos • PRO</p>
+                        </div>
+                        <button onclick="logout()" class="text-gray-400 hover:text-white">
+                            <i class="fas fa-sign-out-alt"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
 
-        // ========== SIDEBAR COMPONENT ==========
-        const Sidebar = ({ activeTab, setActiveTab, user, unreadAlerts = 0 }) => {
-            const menuItems = [
-                { id: 'dashboard', icon: 'fas fa-tachometer-alt', label: 'Dashboard', badge: null },
-                { id: 'campaigns', icon: 'fas fa-bullhorn', label: 'Campanhas', badge: null },
-                { id: 'reports', icon: 'fas fa-chart-bar', label: 'Relatórios', badge: null },
-                { id: 'alerts', icon: 'fas fa-bell', label: 'Alertas', badge: unreadAlerts },
-                { id: 'profile', icon: 'fas fa-user', label: 'Perfil', badge: null }
-            ];
-
-            return (
-                <div className="bg-gray-900 text-white w-64 min-h-screen flex flex-col">
-                    <div className="p-6 border-b border-gray-700">
-                        <div className="flex items-center space-x-3">
-                            <div className="h-10 w-10 bg-blue-600 rounded-lg flex items-center justify-center">
-                                <i className="fas fa-chart-line text-white"></i>
+            <!-- Main Content -->
+            <div class="flex-1">
+                <header class="bg-white shadow-sm border-b border-gray-200">
+                    <div class="px-6 py-4 flex justify-between items-center">
+                        <h2 id="pageTitle" class="text-xl font-semibold text-gray-800">Dashboard</h2>
+                        <div class="flex items-center space-x-4">
+                            <div class="flex items-center space-x-2 text-sm text-gray-600 bg-gray-50 px-3 py-2 rounded-lg">
+                                <i class="fas fa-coins text-yellow-500"></i>
+                                <span class="font-medium">500 créditos</span>
                             </div>
-                            <div>
-                                <h1 className="text-xl font-bold">TRACIONAR</h1>
-                                <p className="text-gray-400 text-xs">Facebook Ads Analytics</p>
+                            <span class="text-sm text-gray-700">João Silva</span>
+                            <button onclick="logout()" class="text-gray-600 hover:text-gray-800">
+                                <i class="fas fa-sign-out-alt"></i>
+                            </button>
+                        </div>
+                    </div>
+                </header>
+
+                <main class="p-6">
+                    <!-- Dashboard Section -->
+                    <div id="section-dashboard" class="space-y-6">
+                        <div>
+                            <h1 class="text-3xl font-bold text-gray-900">Dashboard</h1>
+                            <p class="text-gray-600">Visão geral das campanhas Facebook Ads</p>
+                        </div>
+
+                        <!-- Métricas Principais -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                            <div class="bg-white p-6 rounded-lg card-shadow metric-card">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-sm font-medium text-gray-600">Investimento Total</p>
+                                        <p class="text-2xl font-bold text-gray-900">R$ 20.900</p>
+                                        <p class="text-sm text-green-600">+12.5% vs mês anterior</p>
+                                    </div>
+                                    <div class="p-3 bg-blue-100 rounded-full">
+                                        <i class="fas fa-dollar-sign text-blue-600"></i>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="bg-white p-6 rounded-lg card-shadow metric-card">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-sm font-medium text-gray-600">ROAS Médio</p>
+                                        <p class="text-2xl font-bold text-gray-900">4.0x</p>
+                                        <p class="text-sm text-green-600">+8.3% vs mês anterior</p>
+                                    </div>
+                                    <div class="p-3 bg-green-100 rounded-full">
+                                        <i class="fas fa-chart-line text-green-600"></i>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="bg-white p-6 rounded-lg card-shadow metric-card">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-sm font-medium text-gray-600">Conversões</p>
+                                        <p class="text-2xl font-bold text-gray-900">709</p>
+                                        <p class="text-sm text-green-600">+15.2% vs mês anterior</p>
+                                    </div>
+                                    <div class="p-3 bg-purple-100 rounded-full">
+                                        <i class="fas fa-shopping-cart text-purple-600"></i>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="bg-white p-6 rounded-lg card-shadow metric-card">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-sm font-medium text-gray-600">CPC Médio</p>
+                                        <p class="text-2xl font-bold text-gray-900">R$ 0,84</p>
+                                        <p class="text-sm text-green-600">-5.1% vs mês anterior</p>
+                                    </div>
+                                    <div class="p-3 bg-yellow-100 rounded-full">
+                                        <i class="fas fa-mouse-pointer text-yellow-600"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Gráficos -->
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <div class="bg-white p-6 rounded-lg card-shadow">
+                                <h3 class="text-lg font-semibold mb-4">📈 Performance Diária</h3>
+                                <canvas id="chartPerformance" width="400" height="200"></canvas>
+                            </div>
+
+                            <div class="bg-white p-6 rounded-lg card-shadow">
+                                <h3 class="text-lg font-semibold mb-4">💰 Receita vs Investimento</h3>
+                                <canvas id="chartRevenue" width="400" height="200"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Top Campanhas e Alertas -->
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <div class="bg-white p-6 rounded-lg card-shadow">
+                                <h3 class="text-lg font-semibold mb-4">🏆 Top Campanhas</h3>
+                                <div class="space-y-4">
+                                    <div class="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
+                                        <div>
+                                            <p class="font-medium">Campanha Black Friday 2024</p>
+                                            <p class="text-sm text-gray-600">ROAS: 4.2x</p>
+                                        </div>
+                                        <div class="text-right">
+                                            <p class="font-semibold">R$ 12.500</p>
+                                            <p class="text-sm text-gray-600">425 conversões</p>
+                                        </div>
+                                    </div>
+                                    <div class="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
+                                        <div>
+                                            <p class="font-medium">Lançamento Produto Natal</p>
+                                            <p class="text-sm text-gray-600">ROAS: 3.8x</p>
+                                        </div>
+                                        <div class="text-right">
+                                            <p class="font-semibold">R$ 8.400</p>
+                                            <p class="text-sm text-gray-600">284 conversões</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="bg-white p-6 rounded-lg card-shadow">
+                                <h3 class="text-lg font-semibold mb-4">🔔 Alertas Recentes</h3>
+                                <div class="space-y-4">
+                                    <div class="p-4 rounded-lg border-l-4 bg-yellow-50 border-yellow-500">
+                                        <p class="text-sm font-medium">⚠️ ROAS da campanha abaixo da meta</p>
+                                        <p class="text-xs text-gray-500 mt-1">Campanha "Natal" com ROAS 3.8 vs meta 4.0</p>
+                                        <p class="text-xs text-gray-400 mt-1">2 horas atrás</p>
+                                    </div>
+                                    <div class="p-4 rounded-lg border-l-4 bg-blue-50 border-blue-500">
+                                        <p class="text-sm font-medium">ℹ️ Orçamento diário esgotado</p>
+                                        <p class="text-xs text-gray-500 mt-1">Campanha "Black Friday" às 18h</p>
+                                        <p class="text-xs text-gray-400 mt-1">5 horas atrás</p>
+                                    </div>
+                                    <div class="p-4 rounded-lg border-l-4 bg-red-50 border-red-500">
+                                        <p class="text-sm font-medium">🚨 CPA alto detectado</p>
+                                        <p class="text-xs text-gray-500 mt-1">Adset "Natal + Presentes" +25% em 24h</p>
+                                        <p class="text-xs text-gray-400 mt-1">8 horas atrás</p>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
-                    
-                    <nav className="mt-6 flex-1">
-                        {menuItems.map(item => (
-                            <button
-                                key={item.id}
-                                onClick={() => setActiveTab(item.id)}
-                                className={`w-full text-left px-6 py-3 flex items-center justify-between hover:bg-gray-800 transition-colors sidebar-menu-item ${
+
+                    <!-- Outras Seções (Simplificadas) -->
+                    <div id="section-campaigns" class="hidden">
+                        <div class="text-center py-16">
+                            <i class="fas fa-bullhorn text-6xl text-blue-600 mb-4"></i>
+                            <h2 class="text-3xl font-bold text-gray-900 mb-4">Campanhas Facebook Ads</h2>
+                            <p class="text-gray-600 mb-8">Gestão completa das suas campanhas de marketing</p>
+                            <div class="bg-white p-8 rounded-lg card-shadow max-w-2xl mx-auto">
+                                <h3 class="text-xl font-semibold mb-4">📊 Campanhas Ativas</h3>
+                                <div class="space-y-4">
+                                    <div class="flex justify-between items-center p-4 border rounded-lg">
+                                        <div class="text-left">
+                                            <p class="font-medium">Campanha Black Friday 2024</p>
+                                            <p class="text-sm text-gray-600">Status: Ativa • ROAS: 4.2x</p>
+                                        </div>
+                                        <div class="text-right">
+                                            <p class="font-semibold text-green-600">R$ 12.500</p>
+                                            <p class="text-sm text-gray-600">425 conversões</p>
+                                        </div>
+                                    </div>
+                                    <div class="flex justify-between items-center p-4 border rounded-lg">
+                                        <div class="text-left">
+                                            <p class="font-medium">Lançamento Produto Natal</p>
+                                            <p class="text-sm text-gray-600">Status: Ativa • ROAS: 3.8x</p>
+                                        </div>
+                                        <div class="text-right">
+                                            <p class="font-semibold text-green-600">R$ 8.400</p>
+                                            <p class="text-sm text-gray-600">284 conversões</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="section-reports" class="hidden">
+                        <div class="text-center py-16">
+                            <i class="fas fa-chart-bar text-6xl text-purple-600 mb-4"></i>
+                            <h2 class="text-3xl font-bold text-gray-900 mb-4">Relatórios Automáticos</h2>
+                            <p class="text-gray-600 mb-8">Geração e envio via WhatsApp</p>
+                            <div class="bg-white p-8 rounded-lg card-shadow max-w-2xl mx-auto">
+                                <h3 class="text-xl font-semibold mb-4">📋 Relatórios Recentes</h3>
+                                <div class="space-y-4">
+                                    <div class="flex justify-between items-center p-4 border rounded-lg">
+                                        <div class="text-left">
+                                            <p class="font-medium">Relatório Mensal - Maio 2024</p>
+                                            <p class="text-sm text-gray-600">Tipo: Mensal • Status: Concluído</p>
+                                        </div>
+                                        <div class="text-right">
+                                            <button class="bg-blue-600 text-white px-4 py-2 rounded text-sm">
+                                                <i class="fas fa-download mr-1"></i>Download
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="flex justify-between items-center p-4 border rounded-lg">
+                                        <div class="text-left">
+                                            <p class="font-medium">Performance Semana 22</p>
+                                            <p class="text-sm text-gray-600">Tipo: Semanal • Status: Concluído</p>
+                                        </div>
+                                        <div class="text-right">
+                                            <button class="bg-green-600 text-white px-4 py-2 rounded text-sm">
+                                                <i class="fab fa-whatsapp mr-1"></i>WhatsApp
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="section-alerts" class="hidden">
+                        <div class="text-center py-16">
+                            <i class="fas fa-bell text-6xl text-red-600 mb-4"></i>
+                            <h2 class="text-3xl font-bold text-gray-900 mb-4">Sistema de Alertas</h2>
+                            <p class="text-gray-600 mb-8">Notificações inteligentes baseadas em performance</p>
+                            <div class="bg-white p-8 rounded-lg card-shadow max-w-2xl mx-auto">
+                                <h3 class="text-xl font-semibold mb-4">🔔 Todos os Alertas</h3>
+                                <div class="space-y-4 text-left">
+                                    <div class="p-4 rounded-lg border-l-4 bg-red-50 border-red-500">
+                                        <p class="font-medium text-red-800">🚨 CPA Alto - Crítico</p>
+                                        <p class="text-sm text-red-700">Adset "Natal + Presentes" com CPA 25% acima da meta</p>
+                                        <p class="text-xs text-gray-500 mt-2">8 horas atrás</p>
+                                    </div>
+                                    <div class="p-4 rounded-lg border-l-4 bg-yellow-50 border-yellow-500">
+                                        <p class="font-medium text-yellow-800">⚠️ ROAS Baixo - Atenção</p>
+                                        <p class="text-sm text-yellow-700">Campanha "Natal" com ROAS 3.8 vs meta 4.0</p>
+                                        <p class="text-xs text-gray-500 mt-2">2 horas atrás</p>
+                                    </div>
+                                    <div class="p-4 rounded-lg border-l-4 bg-blue-50 border-blue-500">
+                                        <p class="font-medium text-blue-800">ℹ️ Orçamento Esgotado - Info</p>
+                                        <p class="text-sm text-blue-700">Campanha "Black Friday" esgotou orçamento às 18h</p>
+                                        <p class="text-xs text-gray-500 mt-2">5 horas atrás</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="section-profile" class="hidden">
+                        <div class="text-center py-16">
+                            <i class="fas fa-user text-6xl text-gray-600 mb-4"></i>
+                            <h2 class="text-3xl font-bold text-gray-900 mb-4">Perfil do Usuário</h2>
+                            <p class="text-gray-600 mb-8">Configurações da conta e créditos</p>
+                            <div class="bg-white p-8 rounded-lg card-shadow max-w-2xl mx-auto">
+                                <h3 class="text-xl font-semibold mb-6">👤 Informações da Conta</h3>
+                                <div class="space-y-4 text-left">
+                                    <div class="flex justify-between py-3 border-b">
+                                        <span class="font-medium text-gray-700">Nome:</span>
+                                        <span class="text-gray-900">João Silva</span>
+                                    </div>
+                                    <div class="flex justify-between py-3 border-b">
+                                        <span class="font-medium text-gray-700">Email:</span>
+                                        <span class="text-gray-900">joao@tracionar.com</span>
+                                    </div>
+                                    <div class="flex justify-between py-3 border-b">
+                                        <span class="font-medium text-gray-700">Empresa:</span>
+                                        <span class="text-gray-900">Marketing Digital LTDA</span>
+                                    </div>
+                                    <div class="flex justify-between py-3 border-b">
+                                        <span class="font-medium text-gray-700">Plano:</span>
+                                        <span class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">PRO</span>
+                                    </div>
+                                    <div class="flex justify-between py-3 border-b">
+                                        <span class="font-medium text-gray-700">Créditos:</span>
+                                        <span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">500 disponíveis</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="mt-8">
+                                    <h4 class="font-semibold text-gray-900 mb-4">🔗 Integrações Ativas</h4>
+                                    <div class="space-y-3">
+                                        <div class="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                                            <div class="flex items-center space-x-3">
+                                                <i class="fab fa-facebook text-blue-600"></i>
+                                                <span class="font-medium">Facebook Ads</span>
+                                            </div>
+                                            <span class="bg-green-500 text-white px-2 py-1 rounded text-xs">Conectado</span>
+                                        </div>
+                                        <div class="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                                            <div class="flex items-center space-x-3">
+                                                <i class="fab fa-whatsapp text-green-600"></i>
+                                                <span class="font-medium">WhatsApp</span>
+                                            </div>
+                                            <span class="bg-green-500 text-white px-2 py-1 rounded text-xs">Conectado</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </main>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Estado da aplicação
+        let currentUser = null;
+        let authToken = null;
+
+        // Função de login
+        async function handleLogin(event) {
+            event.preventDefault();
+            
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            const button = document.getElementById('loginButton');
+            
+            button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Entrando...';
+            button.disabled = true;
+            
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    authToken = data.token;
+                    currentUser = data.user;
+                    localStorage.setItem('tracionar_token', authToken);
+                    showDashboard();
+                } else {
+                    throw new Error('Login failed');
+                }
+            } catch (error) {
+                document.getElementById('loginError').classList.remove('hidden');
+                setTimeout(() => {
+                    document.getElementById('loginError').classList.add('hidden');
+                }, 3000);
+            }
+            
+            button.innerHTML = '<i class="fas fa-sign-in-alt mr-2"></i>Entrar no TRACIONAR';
+            button.disabled = false;
+        }
+
+        function showDashboard() {
+            document.getElementById('loginScreen').classList.add('hidden');
+            document.getElementById('dashboardScreen').classList.remove('hidden');
+            
+            // Criar gráficos após mostrar o dashboard
+            setTimeout(createCharts, 100);
+        }
+
+        function logout() {
+            localStorage.removeItem('tracionar_token');
+            authToken = null;
+            currentUser = null;
+            document.getElementById('dashboardScreen').classList.add('hidden');
+            document.getElementById('loginScreen').classList.remove('hidden');
+        }
+
+        function showSection(sectionName) {
+            // Hide all sections
+            const sections = ['dashboard', 'campaigns', 'reports', 'alerts', 'profile'];
+            sections.forEach(section => {
+                document.getElementById(`section-${section}`).classList.add('hidden');
+                document.getElementById(`nav-${section}`).classList.remove('bg-blue-600', 'border-r-4', 'border-blue-400');
+                document.getElementById(`nav-${section}`).classList.add('hover:bg-gray-800');
+            });
+            
+            // Show selected section
+            document.getElementById(`section-${sectionName}`).classList.remove('hidden');
+            document.getElementById(`nav-${sectionName}`).classList.add('bg-blue-600', 'border-r-4', 'border-blue-400');
+            document.getElementById(`nav-${sectionName}`).classList.remove('hover:bg-gray-800');
+            
+            // Update page title
+            // Update page title
+            const titles = {
+                dashboard: 'Dashboard',
+                campaigns: 'Campanhas',
+                reports: 'Relatórios',
+                alerts: 'Alertas',
+                profile: 'Perfil'
+            };
+            document.getElementById('pageTitle').textContent = titles[sectionName];
+        }
+
+        function createCharts() {
+            // Dados para os gráficos
+            const performanceData = {
+                labels: ['01/06', '02/06', '03/06', '04/06', '05/06', '06/06', '07/06'],
+                datasets: [{
+                    label: 'ROAS',
+                    data: [4.0, 4.2, 4.0, 4.4, 4.2, 4.2, 4.2],
+                    borderColor: '#3B82F6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    tension: 0.3
+                }, {
+                    label: 'Investimento (R$)',
+                    data: [420, 380, 445, 390, 460, 485, 425],
+                    borderColor: '#EF4444',
+                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                    tension: 0.3,
+                    yAxisID: 'y1'
+                }]
+            };
+
+            const revenueData = {
+                labels: ['01/06', '02/06', '03/06', '04/06', '05/06', '06/06', '07/06'],
+                datasets: [{
+                    label: 'Receita (R$)',
+                    data: [1680, 1596, 1780, 1716, 1932, 2037, 1785],
+                    backgroundColor: 'rgba(16, 185, 129, 0.8)',
+                    borderColor: '#10B981'
+                }, {
+                    label: 'Investimento (R$)',
+                    data: [420, 380, 445, 390, 460, 485, 425],
+                    backgroundColor: 'rgba(245, 158, 11, 0.8)',
+                    borderColor: '#F59E0B'
+                }]
+            };
+
+            // Gráfico de Performance
+            const ctxPerformance = document.getElementById('chartPerformance').getContext('2d');
+            new Chart(ctxPerformance, {
+                type: 'line',
+                data: performanceData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Performance Diária'
+                        },
+                        legend: {
+                            position: 'top'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            position: 'left',
+                            title: {
+                                display: true,
+                                text: 'ROAS'
+                            }
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            title: {
+                                display: true,
+                                text: 'Investimento (R$)'
+                            },
+                            grid: {
+                                drawOnChartArea: false
+                            }
+                        }
+                    },
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
+                    }
+                }
+            });
+
+            // Gráfico de Receita
+            const ctxRevenue = document.getElementById('chartRevenue').getContext('2d');
+            new Chart(ctxRevenue, {
+                type: 'bar',
+                data: revenueData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Receita vs Investimento'
+                        },
+                        legend: {
+                            position: 'top'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Valor (R$)'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Verificar autenticação ao carregar a página
+        window.addEventListener('load', function() {
+            const token = localStorage.getItem('tracionar_token');
+            if (token) {
+                fetch('/api/auth/verify', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                })
+                .then(response => {
+                    if (response.ok) {
+                        return response.json();
+                    } else {
+                        throw new Error('Token invalid');
+                    }
+                })
+                .then(data => {
+                    authToken = token;
+                    currentUser = data.user;
+                    showDashboard();
+                })
+                .catch(() => {
+                    localStorage.removeItem('tracionar_token');
+                });
+            }
+        });
+
+        // Adicionar animações aos cards de métricas
+        document.addEventListener('DOMContentLoaded', function() {
+            const observerOptions = {
+                threshold: 0.1,
+                rootMargin: '0px 0px -50px 0px'
+            };
+
+            const observer = new IntersectionObserver(function(entries) {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.style.opacity = '1';
+                        entry.target.style.transform = 'translateY(0)';
+                    }
+                });
+            }, observerOptions);
+
+            // Observar cards de métricas quando eles aparecerem
+            setTimeout(() => {
+                const metricCards = document.querySelectorAll('.metric-card');
+                metricCards.forEach(card => {
+                    card.style.opacity = '0';
+                    card.style.transform = 'translateY(20px)';
+                    card.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+                    observer.observe(card);
+                });
+            }, 1000);
+        });
+    </script>
+</body>
+</html>
